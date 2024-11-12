@@ -10,7 +10,7 @@ This project provides a Lambda-based solution for detecting and remediating expo
 - **Cloud Infrastructure**: Infrastructure setup using CloudFormation or Terraform.
 
 ## Architecture
-![Alt text](doc/architetureDiagram.png)
+![Alt text](doc/architectureDiagram.png)
 The system includes the following AWS services:
 - **Lambda**: A serverless function that processes the event, suspends the access key, gathers logs, and sends a notification.
 - **SNS**: Used to send notifications when a key is suspended.
