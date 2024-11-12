@@ -1,0 +1,96 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation template to deploy Lambda for exposed AWS key remediation
+
+Resources:
+
+  # IAM Role for Lambda Function with necessary permissions
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties: 
+      AssumeRolePolicyDocument: 
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Action: "sts:AssumeRole"
+            Principal:
+              Service: "lambda.amazonaws.com"
+      Policies:
+        - PolicyName: LambdaSNSCloudTrailPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "iam:ListAccessKeys"
+                  - "iam:UpdateAccessKey"
+                  - "logs:DescribeLogGroups"
+                  - "logs:FilterLogEvents"
+                  - "sns:Publish"
+                Resource: "*"
+
+  # SNS Topic for Notifications
+  KeySuspensionNotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: "Exposed Key Suspension Notifications"
+      TopicName: "ExposedKeySuspensionNotifications"
+
+  # Lambda Function to handle exposed key remediation
+  ExposedKeyRemediationFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: "lambda_function.lambda_handler"
+      Role: !GetAtt LambdaExecutionRole.Arn
+      FunctionName: "ExposedKeyRemediation"
+      Runtime: "python3.9"
+      Code:
+        S3Bucket: "YOUR_BUCKET_NAME"  # Replace with your S3 bucket where Lambda code is stored
+        S3Key: "lambda/exposed_key_remediation.zip"  # Replace with actual path to your Lambda code in S3
+      MemorySize: 128
+      Timeout: 60
+      Environment:
+        Variables:
+          SNS_TOPIC_ARN: !Ref KeySuspensionNotificationTopic  # Reference to the SNS topic
+
+  # EventBridge Rule to trigger the Lambda function on event
+  ExposedKeyEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: "ExposedKeyEventRule"
+      EventPattern:
+        Source:
+          - "aws.securityhub"  # Change to the source that will trigger the Lambda
+        DetailType:
+          - "AWS API Call via CloudTrail"  # Define the event detail type
+        Detail:
+          EventName:
+            - "ConsoleLogin"
+            - "AssumeRole"  # Add other event names you want to track
+      Targets:
+        - Arn: !GetAtt ExposedKeyRemediationFunction.Arn
+          Id: "ExposedKeyRemediationTarget"
+          Input: '{}'
+
+  # CloudWatch Log Group for Lambda Logs
+  LambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: "/aws/lambda/ExposedKeyRemediation"
+      RetentionInDays: 14
+
+Outputs:
+  LambdaFunctionName:
+    Description: "The name of the Lambda function"
+    Value: !Ref ExposedKeyRemediationFunction
+
+  SNSNotificationTopic:
+    Description: "The SNS topic ARN for exposed key notifications"
+    Value: !Ref KeySuspensionNotificationTopic
+
+  EventBridgeRuleName:
+    Description: "The name of the EventBridge rule"
+    Value: !Ref ExposedKeyEventRule
+
+  LambdaLogGroupName:
+    Description: "The CloudWatch Log Group for Lambda"
+    Value: !Ref LambdaLogGroup
