@@ -14,7 +14,7 @@ iam_client = boto3.client('iam')
 logs_client = boto3.client('logs')
 
 # Specify your Slack Webhook URL
-SLACK_WEBHOOK_URL = 'https://hooks.slack.com/services/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'  # Replace with your Slack Webhook URL
+SLACK_WEBHOOK_URL = 'https://hooks.slack.com/services/your/slack/webhook/url'  # Replace with your Slack Webhook URL
 
 def lambda_handler(event, context):
     try:
