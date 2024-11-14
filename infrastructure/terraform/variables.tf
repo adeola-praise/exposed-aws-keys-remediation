@@ -1,5 +1,3 @@
-# variables.tf
-
 variable "region" {
   description = "AWS region"
   type        = string
@@ -8,11 +6,6 @@ variable "region" {
 
 variable "account_id" {
   description = "AWS Account ID"
-  type        = string
-}
-
-variable "sns_topic_name" {
-  description = "SNS Topic Name"
   type        = string
 }
 
@@ -33,5 +26,10 @@ variable "log_group_name" {
 
 variable "event_rule_name" {
   description = "EventBridge rule name"
+  type        = string
+}
+
+variable "slack_webhook_url" {
+  description = "Slack Webhook URL for notifications"
   type        = string
 }

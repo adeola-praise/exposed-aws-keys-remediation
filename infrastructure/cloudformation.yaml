@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: CloudFormation template to deploy Lambda for exposed AWS key remediation
+Description: CloudFormation template to deploy Lambda for exposed AWS key remediation with Slack notifications
 
 Resources:
 
@@ -15,7 +15,7 @@ Resources:
             Principal:
               Service: "lambda.amazonaws.com"
       Policies:
-        - PolicyName: LambdaSNSCloudTrailPolicy
+        - PolicyName: LambdaLogsAndIAMAccess
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -25,15 +25,7 @@ Resources:
                   - "iam:UpdateAccessKey"
                   - "logs:DescribeLogGroups"
                   - "logs:FilterLogEvents"
-                  - "sns:Publish"
                 Resource: "*"
-
-  # SNS Topic for Notifications
-  KeySuspensionNotificationTopic:
-    Type: AWS::SNS::Topic
-    Properties:
-      DisplayName: "Exposed Key Suspension Notifications"
-      TopicName: "ExposedKeySuspensionNotifications"
 
   # Lambda Function to handle exposed key remediation
   ExposedKeyRemediationFunction:
@@ -50,7 +42,7 @@ Resources:
       Timeout: 60
       Environment:
         Variables:
-          SNS_TOPIC_ARN: !Ref KeySuspensionNotificationTopic  # Reference to the SNS topic
+          SLACK_WEBHOOK_URL: "https://hooks.slack.com/services/your/slack/webhook/url"  # Replace with your Slack Webhook URL
 
   # EventBridge Rule to trigger the Lambda function on event
   ExposedKeyEventRule:
@@ -59,13 +51,18 @@ Resources:
       Name: "ExposedKeyEventRule"
       EventPattern:
         Source:
-          - "aws.securityhub"  # Change to the source that will trigger the Lambda
+          - "aws.health"
         DetailType:
-          - "AWS API Call via CloudTrail"  # Define the event detail type
+          - "AWS Health Event"
         Detail:
-          EventName:
-            - "ConsoleLogin"
-            - "AssumeRole"  # Add other event names you want to track
+          eventTypeCode:
+            - "AWS_RISK_CREDENTIALS_COMPROMISED"
+            - "AWS_RISK_CREDENTIALS_COMPROMISE_SUSPECTED"
+            - "AWS_RISK_CREDENTIALS_EXPOSED"
+            - "AWS_RISK_CREDENTIALS_EXPOSURE_SUSPECTED"
+            - "AWS_RISK_IAM_QUARANTINE"
+          service: ["RISK"]
+          eventTypeCategory: ["issue"]
       Targets:
         - Arn: !GetAtt ExposedKeyRemediationFunction.Arn
           Id: "ExposedKeyRemediationTarget"
@@ -82,10 +79,6 @@ Outputs:
   LambdaFunctionName:
     Description: "The name of the Lambda function"
     Value: !Ref ExposedKeyRemediationFunction
-
-  SNSNotificationTopic:
-    Description: "The SNS topic ARN for exposed key notifications"
-    Value: !Ref KeySuspensionNotificationTopic
 
   EventBridgeRuleName:
     Description: "The name of the EventBridge rule"

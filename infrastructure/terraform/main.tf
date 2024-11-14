@@ -1,12 +1,5 @@
-# main.tf
-
 provider "aws" {
   region = var.region
-}
-
-# SNS Topic
-resource "aws_sns_topic" "alert_topic" {
-  name = var.sns_topic_name
 }
 
 # Lambda Execution Role
@@ -29,7 +22,7 @@ resource "aws_iam_role" "lambda_role" {
 # IAM Policy for Lambda
 resource "aws_iam_policy" "lambda_policy" {
   name        = "LambdaExecutionPolicy"
-  description = "Policy for Lambda to access IAM, SNS, and CloudWatch Logs"
+  description = "Policy for Lambda to access IAM and CloudWatch Logs"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -46,23 +39,12 @@ resource "aws_iam_policy" "lambda_policy" {
         Effect   = "Allow"
         Action   = [
           "logs:FilterLogEvents",
-          "logs:GetLogEvents"
-        ]
-        Resource = "arn:aws:logs:${var.region}:*:*:log-group:/aws/cloudtrail:*"
-      },
-      {
-        Effect   = "Allow"
-        Action   = [
+          "logs:GetLogEvents",
           "logs:CreateLogGroup",
           "logs:CreateLogStream",
           "logs:PutLogEvents"
         ]
         Resource = "arn:aws:logs:${var.region}:*:*:log-group:/aws/lambda/*"
-      },
-      {
-        Effect   = "Allow"
-        Action   = "sns:Publish"
-        Resource = "arn:aws:sns:${var.region}:${var.account_id}:${aws_sns_topic.alert_topic.name}"
       }
     ]
   })
@@ -84,8 +66,14 @@ resource "aws_lambda_function" "lambda" {
   memory_size   = 128
 
   # Path to your deployment package (zip file)
-  filename      = "path_to_your_lambda_package.zip"
+  filename         = "path_to_your_lambda_package.zip"
   source_code_hash = filebase64sha256("path_to_your_lambda_package.zip")
+
+  environment {
+    variables = {
+      SLACK_WEBHOOK_URL = var.slack_webhook_url  # Slack Webhook URL environment variable
+    }
+  }
 }
 
 # CloudWatch Log Group
